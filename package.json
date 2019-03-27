@@ -1,12 +1,12 @@
 {
-  "name": "hyper-letters",
+  "name": "hyper-backspace",
   "version": "0.2.0",
   "keywords": [
     "hyper",
     "hyper.app",
     "hyper-plugin"
   ],
-  "description": "Letters you type are being thrown around",
-  "author": "Khôi Tran <kt@compile.ch>",
+  "description": "Physically drop deleted letters in your terminal",
+  "author": "Djordje Ungar <djordje.ungar@gmail.com>",
   "license": "MIT"
 }
