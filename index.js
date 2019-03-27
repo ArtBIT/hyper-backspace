@@ -1,181 +1,330 @@
-let input
-
-exports.middleware = store => next => action => {
-  // console.log(action.type, action.data)
-  if (action.type === "SESSION_USER_DATA") {
-    input = action.data
-  }
-  next(action)
-}
+const debug = require("debug")("hyper-backspace");
+const isPrintable = char =>
+  String(char).match(/^[\u0020-\u007e\u00a0-\u00ff]$/);
 
 exports.decorateTerm = (Term, { React, notify }) => {
   return class extends React.Component {
     constructor(props, context) {
-      super(props, context)
-
-      // Draw a frame, this is where physiscs is handled
-      this._drawFrame = this._drawFrame.bind(this)
+      super(props, context);
 
       // Set canvas size for bounces
-      this._resizeCanvas = this._resizeCanvas.bind(this)
+      this._resizeCanvas = this._resizeCanvas.bind(this);
 
       // Set this._div and this._canvas
-      this._onDecorated = this._onDecorated.bind(this)
+      this._onDecorated = this._onDecorated.bind(this);
 
       // Spawn letter when cursor moves
-      this._onCursorMove = this._onCursorMove.bind(this)
+      this._onCursorMove = this._onCursorMove.bind(this);
+
+      // Spy onData
+      this._onData = this._onData.bind(this);
 
       // Set letter spawn location
-      this._spawnLetter = this._spawnLetter.bind(this)
+      this._spawnLetter = this._spawnLetter.bind(this);
+      this._renderLetter = this._renderLetter.bind(this);
+      this._updateLetter = this._updateLetter.bind(this);
+      this._isLetterAlive = this._isLetterAlive.bind(this);
+      // Draw a frame, this is where physiscs is handled
+      this._drawFrame = this._drawFrame.bind(this);
 
-      this._div = null
-      this._canvas = null
+      this._div = null;
+      this._canvas = null;
+      this._line = "";
+      this._cursor = {
+        x: 0,
+        y: 0,
+        col: 0,
+        row: 0
+      };
+      this._prevCursor = {
+          row: this._cursor.row,
+          col: this._cursor.col
+      };
 
       // Hold array of letters to handle in _drawFrame
-      this._letters = []
-      this._active = false
+      this._letters = [];
+      this._active = false;
     }
 
-    _spawnLetter(letter, x, y) {
-      let origin = this._div.getBoundingClientRect()
-      x = x + origin.left
-      y = y + origin.top
-      console.log("Spawning letter", letter, x, y)
-      const length = this._letters.length
+    _spawnLetter(letter, x, y, options) {
+      if (!isPrintable(letter)) {
+        return;
+      }
+      options = options || {};
+      const option = (name, defaultValue) =>
+        options.hasOwnProperty(name) ? options[name] : defaultValue;
+      let origin = this._div.getBoundingClientRect();
+      x = x + origin.left;
+      y = y + origin.top;
+      const length = this._letters.length;
+      const ctx = this._canvasContext;
+      const width = ctx.measureText(letter).width;
+      const height = parseInt(ctx.font.match(/\d+/), 10);
 
       // Initial values
-      this._letters.push({
+      const letterObject = {
         // Character in question
         letter,
         // position
         x,
         y,
+        width,
+        height,
+        anchorX: 0.5,
+        anchorY: 0.5,
         // rotation
         rot: 0,
         // velocity
-        vx: (Math.random() - 0.5) * 0.3,
+        vx: option("vx", Math.random() * -0.3),
         vy: -0.2,
         // radial velocity
-        vr: (Math.random() - 0.5) * 0.05,
+        vr: option("vr", Math.random() * -0.02),
         // time to live
         ttl: 1000,
-        lastBounce: 0
-      })
+        bounces: 0,
+        framesSinceTheLastBounce: 0
+      };
+      debug("Spawning letter", letterObject);
+      this._letters.push(letterObject);
 
       if (!this._active) {
-        console.log("activating...")
-        window.requestAnimationFrame(this._drawFrame)
-        this._active = true
+        this._start();
       }
     }
 
     _onDecorated(term) {
-      console.log("on deco", term)
-      if (this.props.onDecorated) this.props.onDecorated(term)
+      debug("on deco", term);
+      if (this.props.onDecorated) this.props.onDecorated(term);
       if (term) {
-        console.log("termed")
-        this._div = term.termRef
-        this._initCanvas()
+        debug("termed");
+        this._term = term.term;
+        this._cellWidth = this._term._core.renderer.dimensions.actualCellWidth;
+        this._cellHeight = this._term._core.renderer.dimensions.actualCellHeight;
+        this._div = term.termRef;
+        this._initCanvas();
       }
     }
 
     _initCanvas() {
-      this._canvas = document.createElement("canvas")
-      this._canvas.style.position = "absolute"
-      this._canvas.style.top = "0"
-      this._canvas.style.pointerEvents = "none"
-      this._canvasContext = this._canvas.getContext("2d")
-      this._canvas.width = window.innerWidth
-      this._canvas.height = window.innerHeight
-      document.body.appendChild(this._canvas)
-      window.addEventListener("resize", this._resizeCanvas)
+      const canvas = document.createElement("canvas");
+      canvas.style.position = "absolute";
+      canvas.style.top = "0";
+      canvas.style.pointerEvents = "none";
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      document.body.appendChild(canvas);
+
+      const ctx = canvas.getContext("2d");
+      ctx.font = `${this.props.fontSize}pt ${this.props.fontFamily}`;
+      ctx.textBaseline = "top";
+      ctx.fillStyle = this.props.foregroundColor;
+
+      this._canvas = canvas;
+      this._canvasContext = ctx;
+
+      window.addEventListener("resize", this._resizeCanvas);
+    }
+
+    _start() {
+      debug("activating...");
+      window.requestAnimationFrame(this._drawFrame);
+      this._active = true;
+    }
+
+    _stop() {
+      this._active = false;
+      this._lastRender = false;
     }
 
     _drawFrame(time) {
       if (!this._lastRender) {
-        this._lastRender = time
-        window.requestAnimationFrame(this._drawFrame)
-        return
+        this._lastRender = time;
+        window.requestAnimationFrame(this._drawFrame);
+        return;
       }
-      let dt = time - this._lastRender
-      this._lastRender = time
+      this._dt = time - this._lastRender;
+      this._lastRender = time;
 
-      this._canvasContext.clearRect(
-        0,
-        0,
-        this._canvas.width,
-        this._canvas.height
-      )
+      const ctx = this._canvasContext;
+      ctx.clearRect(0, 0, this._canvas.width, this._canvas.height);
+      ctx.save();
+
       // handle each letter
-      this._letters.forEach(l => {
-        // when the character bounces off bottom
-        if (l.lastBounce > 10 && l.y > this._canvas.height - 10) {
-          // bouncyness
-          l.vy *= -0.6
+      this._letters = this._letters
+        .map(this._updateLetter)
+        .filter(this._isLetterAlive)
+        .map(this._renderLetter);
 
-          // random rotation
-          l.vr = (Math.random() - 0.5) * 0.05,
-
-          // dampen horizontal speed
-          l.vx *= 0.8
-          l.lastBounce = 0
-        }
-
-        l.lastBounce++
-
-        // handle left / right walls too?
-        if (l.x <= 0 || l.x > this._canvas.width) {
-          l.vx = -l.vx
-        }
-
-        // gravity
-        l.vy += 0.01
-
-        // physics
-        l.x += l.vx * dt
-        l.y += l.vy * dt
-
-        // rotation
-        l.rot += l.vr * dt
-        l.ttl--
-
-        this._canvasContext.save()
-        this._canvasContext.translate(l.x, l.y)
-        this._canvasContext.rotate(l.rot)
-        this._canvasContext.font = `${this.props.fontSize}pt ${
-          this.props.fontFamily
-        }`
-        this._canvasContext.fillStyle = this.props.foregroundColor
-        this._canvasContext.textAlign = "center"
-        this._canvasContext.fillText(l.letter, 0, 0)
-        this._canvasContext.restore()
-      })
+      ctx.restore();
 
       // request a new animation frame when there are still letters left
       if (this._letters.length > 0) {
-        window.requestAnimationFrame(this._drawFrame)
+        window.requestAnimationFrame(this._drawFrame);
       } else {
-        console.log("deactivating...")
-        this._active = false
+        debug("deactivating...");
+        this._stop();
+      }
+    }
+
+    _updateLetter(l) {
+      // floor bounce
+      if (l.framesSinceTheLastBounce > 10 && l.y > this._canvas.height) {
+        l.y = this._canvas.height;
+
+        // vertical speed
+        l.vy *= -(Math.random() * 0.6);
+
+        // horizontal speed
+        l.vx *= 0.8;
+
+        // random rotation
+        l.vr = (Math.random() - 0.5) * 0.05;
+
+        // bounces
+        if (l.bounces++ > 10) {
+            l.ttl = 0;
+        }
+
+        // reset frame counter
+        l.framesSinceTheLastBounce = 0;
       }
 
-      // remove letter when TTL is 0
-      this._letters = this._letters.filter(l => l.ttl > 0)
+      l.framesSinceTheLastBounce++;
+
+      // vertical wall bounce
+      if (l.x <= 0 || l.x > this._canvas.width) {
+        l.vx = -l.vx;
+      }
+
+      // gravity
+      l.vy += 0.01;
+
+      // position
+      l.x += l.vx * this._dt;
+      l.y += l.vy * this._dt;
+
+      // rotation
+      l.rot += l.vr * this._dt;
+      l.ttl--;
+
+      return l;
+    }
+
+    _renderLetter(l) {
+      const ctx = this._canvasContext;
+      ctx.save();
+
+      // rotate around a point
+      const xo = l.anchorX * l.width;
+      const yo = l.anchorY * l.height;
+      ctx.translate(l.x + xo, l.y + yo);
+      ctx.rotate(l.rot);
+      ctx.translate(-xo, -yo);
+
+      // fill text
+      ctx.fillText(l.letter, 0, 0);
+
+      /*
+      if (debug.enabled) {
+        ctx.save();
+        ctx.strokeStyle = "red";
+        ctx.strokeRect(0, 0, l.width, l.height);
+        ctx.restore();
+      }
+      */
+
+      ctx.restore();
+      return l;
+    }
+
+    _isLetterAlive(l) {
+      return l.ttl > 0;
     }
 
     _resizeCanvas() {
-      this._canvas.width = window.innerWidth
-      this._canvas.height = window.innerHeight
+      this._canvas.width = window.innerWidth;
+      this._canvas.height = window.innerHeight;
     }
 
     _onCursorMove(cursorFrame) {
-      if (this.props.onCursorMove) this.props.onCursorMove(cursorFrame)
-
-      const { x, y } = cursorFrame
-      this._cursorPosition = { x, y }
-      if (input && input.match(/^[\u0020-\u007e\u00a0-\u00ff]$/)) {
-        this._spawnLetter(input, x, y)
+      debug("onCursorMove", cursorFrame);
+      if (this.props.onCursorMove) {
+        this.props.onCursorMove(cursorFrame);
       }
+
+      // cursorFrame row and column seem to be swapped
+      // https://github.com/zeit/hyper/blob/8733ecc84ac63c49f82bba868bbd8dcb6e27455b/lib/components/term.js#L177
+      this._cursor.x = cursorFrame.x;
+      this._cursor.y = cursorFrame.y;
+      this._cursor.col = cursorFrame.row;
+      this._cursor.row = cursorFrame.col;
+    }
+
+    _updateCurrentLine() {
+      this._line = this._getCurrentLine();
+      this._prevCursor.row = this._cursor.row;
+      this._prevCursor.col = this._cursor.col;
+    }
+
+    _getCurrentLine() {
+      this._term.selectLines(this._cursor.row, this._cursor.row);
+      const line = this._term.getSelection();
+      this._term.clearSelection();
+      return line;
+    }
+
+    _processLineChange() {
+      const line = this._getCurrentLine();
+      let ii = 0;
+      if (this._prevCursor.row === this._cursor.row) {
+          for (var i = 0; i < this._line.length; i++) {
+            if (this._line.charAt(i) == line.charAt(ii)) {
+              ii++;
+            } else {
+              // this character is missing from the terminal line
+              // it must have been deleted
+              this._spawnLetter(
+                this._line.charAt(i),
+                i * this._cellWidth,
+                this._cursor.y,
+                  {
+                      vx: Math.random() * 0.3 * (this._prevCursor.col == this._cursor.col ? 1 : -1),
+                      vr: Math.random() * 0.02
+                  }
+              );
+            }
+          }
+      }
+      this._updateCurrentLine();
+    }
+
+    _onData(data) {
+      if (this.props.onData) this.props.onData(data);
+      debug("data", data);
+
+      const isDelete = data === '\u001B[3~';
+      const isBackspace = data === '\u007F';
+
+      if (!isDelete && !isBackspace) {
+          this._delayedCallback(()=>this._updateCurrentLine(), 3);
+          return;
+      }
+      
+      // Some actions do not trigger onCursorMove, even though the data changed
+      // so we need to trigger the _processLineChange manually
+      // We delay its execution for 3 frames, to wait for the terminal line to update
+      this._delayedCallback(()=>this._processLineChange(), 3);
+    }
+
+    _delayedCallback(callback, framesToWait) {
+      let frameCount = framesToWait || 0;
+      window.requestAnimationFrame(() => {
+          if (frameCount === 0) {
+              callback();
+          } else {
+              this._delayedCallback(callback, frameCount-1);
+          }
+      });
     }
 
     render() {
@@ -183,13 +332,14 @@ exports.decorateTerm = (Term, { React, notify }) => {
         Term,
         Object.assign({}, this.props, {
           onDecorated: this._onDecorated,
-          onCursorMove: this._onCursorMove
+          onCursorMove: this._onCursorMove,
+          onData: this._onData
         })
-      )
+      );
     }
 
     componentWillUnmount() {
-      document.body.removeChild(this._canvas)
+      document.body.removeChild(this._canvas);
     }
-  }
-}
+  };
+};

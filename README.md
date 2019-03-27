@@ -1,17 +1,18 @@
 
-# hyper-letters
+# hyper-backspace
 
-Extension for Hyper that drops entered letters physically in your terminal.
+Extension for [Hyper.app](https://hyper.is) that physically removes deleted characters in your terminal.
 
-![hyper-letter](https://user-images.githubusercontent.com/5426590/50339456-f687ea80-0517-11e9-9103-bfcda5634186.gif)
+![hyper-backspace](https://user-images.githubusercontent.com/184220/55082214-8dc58680-50a1-11e9-96fb-6ff1944f9a1f.gif)
+
 
 ## How to use
 
-`hyper i hyper-letters`
+`hyper i hyper-backspace`
 
 ## Credits
 
-Inspired by [Hyperpower](https://github.com/zeit/hyperpower)
+Inspired by [hyper-letters](https://github.com/KeeTraxx/hyper-letters)
 
 ## License
 
