@@ -3,7 +3,7 @@
 
 Extension for [Hyper.app](https://hyper.is) that physically removes deleted characters in your terminal.
 
-![hyper-backspace](https://user-images.githubusercontent.com/184220/55082214-8dc58680-50a1-11e9-96fb-6ff1944f9a1f.gif)
+![hyper-backspace](https://user-images.githubusercontent.com/184220/55084811-dc751f80-50a5-11e9-9eea-af3661cb6aa9.gif)
 
 
 ## How to use
