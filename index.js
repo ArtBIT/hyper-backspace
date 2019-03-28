@@ -1,7 +1,6 @@
 const merge = require("lodash.merge");
-const createDebug = require("debug");
 const debugNamespace = "hyper-backspace";
-const debug = createDebug(debugNamespace);
+const debug = require("debug")(debugNamespace);
 const isPrintable = char =>
   String(char).match(/^[\u0020-\u007e\u00a0-\u00ff]$/);
 
@@ -26,7 +25,6 @@ exports.decorateConfig = mainConfig => {
       mainConfig.hyperBackspace
     );
   }
-  createDebug[config.debug ? 'enable' : 'disable'](debugNamespace);
   return mainConfig;
 };
 
@@ -34,6 +32,7 @@ exports.decorateTerm = (Term, { React, notify }) => {
   return class extends React.Component {
     constructor(props, context) {
       super(props, context);
+      debug.enabled = !!config.debug;
 
       // Set canvas size for bounces
       this._resizeCanvas = this._resizeCanvas.bind(this);
@@ -75,7 +74,7 @@ exports.decorateTerm = (Term, { React, notify }) => {
     }
 
     _spawnLetter(letter, x, y, options) {
-      if (!isPrintable(letter)) {
+      if (!isPrintable(letter) || letter === ' ') {
         return;
       }
       options = options || {};
@@ -256,14 +255,12 @@ exports.decorateTerm = (Term, { React, notify }) => {
       // fill text
       ctx.fillText(l.letter, 0, 0);
 
-      /*
       if (debug.enabled) {
         ctx.save();
         ctx.strokeStyle = "red";
         ctx.strokeRect(0, 0, l.width, l.height);
         ctx.restore();
       }
-      */
 
       ctx.restore();
       return l;
@@ -279,7 +276,6 @@ exports.decorateTerm = (Term, { React, notify }) => {
     }
 
     _onCursorMove(cursorFrame) {
-      debug("onCursorMove", cursorFrame);
       if (this.props.onCursorMove) {
         this.props.onCursorMove(cursorFrame);
       }
@@ -336,7 +332,6 @@ exports.decorateTerm = (Term, { React, notify }) => {
 
     _onData(data) {
       if (this.props.onData) this.props.onData(data);
-      debug("data", data);
 
       const isDelete = data === "\u001B[3~";
       const isBackspace = data === "\u007F";
