@@ -19,3 +19,10 @@ Inspired by [hyper-letters](https://github.com/KeeTraxx/hyper-letters)
 ## License
 
 MIT
+
+[npm-src]: https://badgen.net/npm/v/hyper-backspace
+[npm-href]: https://www.npmjs.com/package/hyper-backspace
+[packagephobia-src]: https://badgen.net/packagephobia/install/hyper-backspace
+[packagephobia-href]: https://packagephobia.now.sh/result?p=hyper-backspace
+[license-src]: https://badgen.net/github/license/artbit/hyper-backspace
+[license-href]: LICENSE.md
