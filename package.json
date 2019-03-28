@@ -1,12 +1,21 @@
 {
   "name": "hyper-backspace",
-  "version": "0.2.1",
+  "version": "0.2.2",
+  "description": "Physically drop deleted letters in your terminal",
+  "main": "index.js",
   "keywords": [
     "hyper",
     "hyper.app",
     "hyper-plugin"
   ],
-  "description": "Physically drop deleted letters in your terminal",
   "author": "Djordje Ungar <djordje.ungar@gmail.com>",
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/artbit/hyper-backspace.git"
+  },
+  "bugs": {
+    "url": "https://github.com/artbit/hyper-backspace/issues"
+  },
+  "homepage": "https://github.com/artbit/hyper-backspace#readme"
 }
