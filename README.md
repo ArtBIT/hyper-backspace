@@ -25,4 +25,4 @@ MIT
 [packagephobia-src]: https://badgen.net/packagephobia/install/hyper-backspace
 [packagephobia-href]: https://packagephobia.now.sh/result?p=hyper-backspace
 [license-src]: https://badgen.net/github/license/artbit/hyper-backspace
-[license-href]: LICENSE
+[license-href]: LICENSE.md
