@@ -10,7 +10,7 @@ Extension for [Hyper.is](https://hyper.is) that physically drops deleted charact
 
 ## Installation
 
-Open ~/.hyper.js and add `hyper-backspace` to the list of plugins.
+Open `~/.hyper.js` and add `hyper-backspace` to the list of plugins.
 
 ## Credits
 
