@@ -22,6 +22,29 @@ plugins: [
 ],
 ```
 
+## Configuration
+
+Default configuration:
+```
+module.exports = {
+  config: {
+    // other configs...
+    hyperBackspace: {
+      debug: false,
+      gravity: 0.01,
+      horizontalMaxVelocity: 0.3,
+      verticalMaxVelocity: 0.2,
+      angularMaxVelocity: 0.02,
+      particleTimeToLive: 1000,
+      verticalDragCoefficient: 0.2,
+      horizontalDragCoefficient: 0.8,
+      bounceDragCoefficient: 0.6,
+    }
+  }
+  //...
+};
+```
+
 ## Credits
 
 Inspired by [hyper-letters](https://github.com/KeeTraxx/hyper-letters)

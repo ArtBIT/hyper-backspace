@@ -1,6 +1,6 @@
 {
   "name": "hyper-backspace",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Physically drop deleted letters in your terminal",
   "main": "index.js",
   "keywords": [
@@ -17,5 +17,9 @@
   "bugs": {
     "url": "https://github.com/artbit/hyper-backspace/issues"
   },
-  "homepage": "https://github.com/artbit/hyper-backspace#readme"
+  "homepage": "https://github.com/artbit/hyper-backspace#readme",
+  "dependencies": {
+    "debug": "^4.1.1",
+    "lodash.merge": "^4.6.1"
+  }
 }

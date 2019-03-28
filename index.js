@@ -1,6 +1,34 @@
-const debug = require("debug")("hyper-backspace");
+const merge = require("lodash.merge");
+const createDebug = require("debug");
+const debugNamespace = "hyper-backspace";
+const debug = createDebug(debugNamespace);
 const isPrintable = char =>
   String(char).match(/^[\u0020-\u007e\u00a0-\u00ff]$/);
+
+const defaultConfig = {
+  debug: false,
+  gravity: 0.01,
+  horizontalMaxVelocity: 0.3,
+  verticalMaxVelocity: 0.2,
+  angularMaxVelocity: 0.02,
+  particleTimeToLive: 1000,
+  verticalDragCoefficient: 0.2,
+  horizontalDragCoefficient: 0.8,
+  bounceDragCoefficient: 0.6,
+};
+
+let config = defaultConfig;
+
+exports.decorateConfig = mainConfig => {
+  if (mainConfig && mainConfig.hyperBackspace) {
+    config = merge(
+      JSON.parse(JSON.stringify(defaultConfig)),
+      mainConfig.hyperBackspace
+    );
+  }
+  createDebug[config.debug ? 'enable' : 'disable'](debugNamespace);
+  return mainConfig;
+};
 
 exports.decorateTerm = (Term, { React, notify }) => {
   return class extends React.Component {
@@ -37,8 +65,8 @@ exports.decorateTerm = (Term, { React, notify }) => {
         row: 0
       };
       this._prevCursor = {
-          row: this._cursor.row,
-          col: this._cursor.col
+        row: this._cursor.row,
+        col: this._cursor.col
       };
 
       // Hold array of letters to handle in _drawFrame
@@ -60,6 +88,12 @@ exports.decorateTerm = (Term, { React, notify }) => {
       const ctx = this._canvasContext;
       const width = ctx.measureText(letter).width;
       const height = parseInt(ctx.font.match(/\d+/), 10);
+      const {
+        horizontalMaxVelocity,
+        verticalMaxVelocity,
+        angularMaxVelocity,
+        particleTimeToLive
+      } = config;
 
       // Initial values
       const letterObject = {
@@ -75,12 +109,12 @@ exports.decorateTerm = (Term, { React, notify }) => {
         // rotation
         rot: 0,
         // velocity
-        vx: option("vx", Math.random() * -0.3),
-        vy: -0.2,
+        vx: option("vx", Math.random() * -horizontalMaxVelocity),
+        vy: option("vy", (Math.random() * 0.5 + 0.5) * -verticalMaxVelocity),
         // radial velocity
-        vr: option("vr", Math.random() * -0.02),
+        vr: option("vr", Math.random() * -angularMaxVelocity),
         // time to live
-        ttl: 1000,
+        ttl: particleTimeToLive,
         bounces: 0,
         framesSinceTheLastBounce: 0
       };
@@ -93,10 +127,8 @@ exports.decorateTerm = (Term, { React, notify }) => {
     }
 
     _onDecorated(term) {
-      debug("on deco", term);
       if (this.props.onDecorated) this.props.onDecorated(term);
       if (term) {
-        debug("termed");
         this._term = term.term;
         this._cellWidth = this._term._core.renderer.dimensions.actualCellWidth;
         this._cellHeight = this._term._core.renderer.dimensions.actualCellHeight;
@@ -172,17 +204,17 @@ exports.decorateTerm = (Term, { React, notify }) => {
         l.y = this._canvas.height;
 
         // vertical speed
-        l.vy *= -(Math.random() * 0.6);
+        l.vy *= -(Math.random() * config.bounceDragCoefficient);
 
         // horizontal speed
-        l.vx *= 0.8;
+        l.vx *= config.horizontalDragCoefficient;
 
         // random rotation
-        l.vr = (Math.random() - 0.5) * 0.05;
+        l.vr = (Math.random() - 0.5) * config.angularMaxVelocity;
 
         // bounces
         if (l.bounces++ > 10) {
-            l.ttl = 0;
+          l.ttl = 0;
         }
 
         // reset frame counter
@@ -197,7 +229,7 @@ exports.decorateTerm = (Term, { React, notify }) => {
       }
 
       // gravity
-      l.vy += 0.01;
+      l.vy += config.gravity;
 
       // position
       l.x += l.vx * this._dt;
@@ -258,6 +290,8 @@ exports.decorateTerm = (Term, { React, notify }) => {
       this._cursor.y = cursorFrame.y;
       this._cursor.col = cursorFrame.row;
       this._cursor.row = cursorFrame.col;
+      this._cellWidth = cursorFrame.width;
+      this._cellHeight = cursorFrame.height;
     }
 
     _updateCurrentLine() {
@@ -277,23 +311,25 @@ exports.decorateTerm = (Term, { React, notify }) => {
       const line = this._getCurrentLine();
       let ii = 0;
       if (this._prevCursor.row === this._cursor.row) {
-          for (var i = 0; i < this._line.length; i++) {
-            if (this._line.charAt(i) == line.charAt(ii)) {
-              ii++;
-            } else {
-              // this character is missing from the terminal line
-              // it must have been deleted
-              this._spawnLetter(
-                this._line.charAt(i),
-                i * this._cellWidth,
-                this._cursor.y,
-                  {
-                      vx: Math.random() * 0.3 * (this._prevCursor.col == this._cursor.col ? 1 : -1),
-                      vr: Math.random() * 0.02
-                  }
-              );
-            }
+        for (var i = 0; i < this._line.length; i++) {
+          if (this._line.charAt(i) == line.charAt(ii)) {
+            ii++;
+          } else {
+            // this character is missing from the terminal line
+            // it must have been deleted
+            this._spawnLetter(
+              this._line.charAt(i),
+              i * this._cellWidth,
+              this._cursor.y,
+              {
+                vx:
+                  Math.random() * config.horizontalMaxVelocity * 
+                  (this._prevCursor.col == this._cursor.col ? 1 : -1),
+                vr: Math.random() * config.angularMaxVelocity
+              }
+            );
           }
+        }
       }
       this._updateCurrentLine();
     }
@@ -302,28 +338,28 @@ exports.decorateTerm = (Term, { React, notify }) => {
       if (this.props.onData) this.props.onData(data);
       debug("data", data);
 
-      const isDelete = data === '\u001B[3~';
-      const isBackspace = data === '\u007F';
+      const isDelete = data === "\u001B[3~";
+      const isBackspace = data === "\u007F";
 
       if (!isDelete && !isBackspace) {
-          this._delayedCallback(()=>this._updateCurrentLine(), 3);
-          return;
+        this._delayedCallback(() => this._updateCurrentLine(), 3);
+        return;
       }
-      
+
       // Some actions do not trigger onCursorMove, even though the data changed
       // so we need to trigger the _processLineChange manually
       // We delay its execution for 3 frames, to wait for the terminal line to update
-      this._delayedCallback(()=>this._processLineChange(), 3);
+      this._delayedCallback(() => this._processLineChange(), 3);
     }
 
     _delayedCallback(callback, framesToWait) {
       let frameCount = framesToWait || 0;
       window.requestAnimationFrame(() => {
-          if (frameCount === 0) {
-              callback();
-          } else {
-              this._delayedCallback(callback, frameCount-1);
-          }
+        if (frameCount === 0) {
+          callback();
+        } else {
+          this._delayedCallback(callback, frameCount - 1);
+        }
       });
     }
 
